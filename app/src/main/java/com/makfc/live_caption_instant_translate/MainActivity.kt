@@ -20,7 +20,7 @@ class MainActivity : AppCompatActivity() {
         private const val TAG = BuildConfig.APPLICATION_ID
     }
 
-    var text: String? = ""
+    var text: String? = null
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         val inflater: MenuInflater = menuInflater
@@ -47,7 +47,8 @@ class MainActivity : AppCompatActivity() {
             type = "text/plain"
             component = ComponentName(
                 "com.google.android.apps.translate",
-                "com.google.android.apps.translate.TranslateActivity")
+                "com.google.android.apps.translate.TranslateActivity"
+            )
 /*            component = ComponentName(
                 "com.google.android.apps.translate",
                 "com.google.android.apps.translate.copydrop.CopyDropActivity")*/
@@ -100,14 +101,23 @@ class MainActivity : AppCompatActivity() {
     private fun setText() {
         val startSelection: Int = textView_transcript.selectionStart
         val endSelection: Int = textView_transcript.selectionEnd
-        if (startSelection == endSelection && getScrollViewBottomDelta(scrollView) == 0) {
+        if (text != null
+            && startSelection == endSelection
+            && getScrollViewBottomDelta(scrollView) == 0
+        ) {
             textView_transcript.text = text
             scrollView.post { scrollToBottom(scrollView) }
-            webView.evaluateJavascript("javascript:" +
-                    "document.getElementById(\"tta_input_ta\").value = " +
-                    "\"${text?.replace("\n","\\n")}\";" +
-                    "document.getElementById(\"tta_input_ta\").click();" +
-                    "window.scrollTo(0,document.body.scrollHeight);") {}
+            var preProcessText = text!!.replace("\n", "\\n")
+            if (preProcessText.length > 1000) {
+                preProcessText = preProcessText.takeLast(1000 )
+            }
+            webView.evaluateJavascript(
+                "javascript:" +
+                        "document.getElementById(\"tta_input_ta\").value = " +
+                        "\"${preProcessText}\";" +
+                        "document.getElementById(\"tta_input_ta\").click();" +
+                        "window.scrollTo(0,document.body.scrollHeight-300);"
+            ) {}
         }
     }
 
