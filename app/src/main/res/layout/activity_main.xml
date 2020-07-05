@@ -26,7 +26,7 @@
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
             android:gravity="top|start|end"
-            android:text="Say something!"
+            android:text="Turn on Live Caption and play some media that says something..."
             android:textIsSelectable="true"
             android:focusable="true"
             android:longClickable="true"
@@ -47,7 +47,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        app:layout_constraintGuide_percent="0.5" />
+        app:layout_constraintGuide_percent="0.0" />
 
 
 
@@ -65,20 +65,20 @@
             app:layout_constraintTop_toBottomOf="@+id/scrollView"
             app:layout_constraintVertical_weight="1">
 
-            <WebView
+<!--            <WebView
                 android:id="@+id/webView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                />
+                />-->
 
-<!--            <TextView
+            <TextView
                 android:id="@+id/textView_transcript2"
                 android:layout_width="fill_parent"
                 android:layout_height="wrap_content"
                 android:gravity="top|start|end"
-                android:text="Translated result"
+                android:text="Translated Result"
                 android:textIsSelectable="true"
-                android:textSize="@dimen/text_size" />-->
+                android:textSize="@dimen/text_size" />
         </ScrollView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

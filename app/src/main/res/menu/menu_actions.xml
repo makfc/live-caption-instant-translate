@@ -3,9 +3,15 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <item
-        android:id="@+id/translate"
+        android:id="@+id/translateAll"
         android:orderInCategory="100"
-        android:title="Translate"
+        android:title="Translate All"
         app:showAsAction="always" />
+
+    <item
+        android:id="@+id/googleTranslate"
+        android:orderInCategory="100"
+        android:title="Google Translate"
+        app:showAsAction="withText" />
 
 </menu>
