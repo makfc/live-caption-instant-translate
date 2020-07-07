@@ -1,24 +1,36 @@
 package com.makfc.live_caption_instant_translate.service
 
 import android.accessibilityservice.AccessibilityService
+import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.os.Handler
 import android.util.Log
+import android.view.MotionEvent
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityEvent.*
 import android.view.accessibility.AccessibilityNodeInfo
+import android.widget.*
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.lzf.easyfloat.EasyFloat
+import com.lzf.easyfloat.enums.ShowPattern
+import com.makfc.live_caption_instant_translate.widget.ScaleImage
+import com.lzf.easyfloat.interfaces.OnInvokeView
 import com.makfc.live_caption_instant_translate.BuildConfig
 import com.makfc.live_caption_instant_translate.MainActivity
+import com.makfc.live_caption_instant_translate.MainActivity.Companion.scrollToBottom
+import com.makfc.live_caption_instant_translate.R
 import com.makfc.live_caption_instant_translate.translate_api.Language
 import com.makfc.live_caption_instant_translate.translate_api.TranslateAPI
+import kotlin.math.max
 
 class MyAccessibilityService : AccessibilityService() {
     companion object {
+        var instance: MyAccessibilityService? = null
         private const val TAG = BuildConfig.APPLICATION_ID
+        const val TAG_SCALE_FLOAT = "scaleFloat"
         val ACTION_BROADCAST =
             MyAccessibilityService::class.java.name + "Broadcast"
         const val EXTRA_TEXT = "extra_text"
@@ -28,41 +40,91 @@ class MyAccessibilityService : AccessibilityService() {
         const val EXTRA_IS_TRANSLATED_TEXT = "extra_is_translated_text"
         const val EXTRA_ON_SERVICE_CONNECTED = "extra_on_service_connected"
         var previoustext = "Turn on Live Caption and play some media that says something..."
-        var translatedText = ""
+        var translatedText = "Text"
     }
 
     private val translateAPI = TranslateAPI()
 
+    @SuppressLint("ClickableViewAccessibility")
     override fun onServiceConnected() {
-        Log.v(TAG, "on Service Connected")
+        instance = this
+        Log.d(TAG, "on Service Connected")
         LocalBroadcastManager.getInstance(this).registerReceiver(
             object : BroadcastReceiver() {
                 override fun onReceive(context: Context, intent: Intent) {
                     Log.d(TAG, "onReceive: ${MainActivity.ACTION_BROADCAST}")
                     sendBroadcastMessage(previoustext, EXTRA_FROM_LIVE_CAPTION, false)
-                    sendBroadcastMessage(translatedText, EXTRA_FROM_LIVE_CAPTION, true)
+                    translate(previoustext, EXTRA_FROM_LIVE_CAPTION)
+//                    sendBroadcastMessage(translatedText, EXTRA_FROM_LIVE_CAPTION, true)
                 }
             }, IntentFilter(MainActivity.ACTION_BROADCAST)
         )
+        showEasyFloat(this)
+    }
+
+    fun showEasyFloat(activity: Context) {
         EasyFloat.init(this.application, true)
-        val intent = Intent(this, MainActivity::class.java).apply {
-            putExtra(EXTRA_ON_SERVICE_CONNECTED, "")
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-        }
-        startActivity(intent)
+        EasyFloat.with(activity)
+            .setTag(TAG_SCALE_FLOAT)
+            .setShowPattern(ShowPattern.ALL_TIME)
+            .setLocation(200, 500)
+            .setAppFloatAnimator(null)
+            .setFilter(MainActivity::class.java)
+            .setLayout(R.layout.float_app_scale, OnInvokeView {
+                val content = it.findViewById<RelativeLayout>(R.id.rlContent)
+                val params = content.layoutParams as FrameLayout.LayoutParams
+                it.findViewById<ScaleImage>(R.id.ivScale).onScaledListener =
+                    object : ScaleImage.OnScaledListener {
+                        override fun onScaled(x: Float, y: Float, event: MotionEvent) {
+                            params.width = max(params.width + x.toInt(), 100)
+                            params.height = max(params.height + y.toInt(), 100)
+                            content.layoutParams = params
+                        }
+                    }
+
+                it.findViewById<ImageView>(R.id.ivClose).setOnClickListener {
+                    Log.d(MainActivity.TAG, "hideAppFloat: $TAG_SCALE_FLOAT")
+                    EasyFloat.hideAppFloat(TAG_SCALE_FLOAT)
+                }
+                it.findViewById<TextView>(R.id.textView).setOnLongClickListener {
+                    Log.d(TAG, "textView: OnLongClick")
+                    val intent = Intent(this, MainActivity::class.java).apply {
+                        putExtra(EXTRA_ON_SERVICE_CONNECTED, "")
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    startActivity(intent)
+                    false
+                }
+            })
+/*            .registerCallback {
+                touchEvent { view, motionEvent ->
+                    Log.d(TAG, "motionEvent: $motionEvent")
+                }
+            }*/
+            .show()
+        Handler().postDelayed({
+            Log.d(MainActivity.TAG, "hideAppFloat: $TAG_SCALE_FLOAT")
+            EasyFloat.hideAppFloat(TAG_SCALE_FLOAT)
+        }, 0)
     }
 
     override fun onInterrupt() {}
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-/*        when (event?.packageName) {
+//        Log.d(TAG, "onAccessibilityEvent: $event")
+        when (event?.packageName) {
             "com.vanced.android.youtube" -> {
 //                Log.d(TAG, "onAccessibilityEvent: $event")
             }
             "com.google.android.as" -> {
-
+                // When Live Caption gone
+                if (event.contentChangeTypes == CONTENT_CHANGE_TYPE_SUBTREE &&
+                    event.className == "android.widget.RelativeLayout"
+                ) {
+                    EasyFloat.hideAppFloat(TAG_SCALE_FLOAT)
+                }
             }
-        }*/
+        }
         when (event?.eventType) {
             TYPE_WINDOW_CONTENT_CHANGED -> {
                 val source: AccessibilityNodeInfo = event.source ?: return
@@ -98,6 +160,7 @@ class MyAccessibilityService : AccessibilityService() {
             TYPE_VIEW_SCROLLED -> {
             }
             TYPE_WINDOW_STATE_CHANGED -> {
+//                Log.d(TAG, "source.childCount: ${source.childCount}")
 /*                val activityNodeInfo: AccessibilityNodeInfo? = findTextViewNode(event.source)
 //                val activityNodeInfo: AccessibilityNodeInfo = event.source
                 val rect = Rect()
@@ -123,11 +186,17 @@ class MyAccessibilityService : AccessibilityService() {
 //                Log.d(TAG, "onSuccess: $translatedText")
                 if (translatedText == null) return
                 sendBroadcastMessage(translatedText, captionSource, true)
+                EasyFloat.showAppFloat(TAG_SCALE_FLOAT)
+                EasyFloat.getAppFloatView(TAG_SCALE_FLOAT)?.apply {
+                    findViewById<TextView>(R.id.textView).text = translatedText
+                    val scrollView = findViewById<ScrollView>(R.id.scrollView)
+                    scrollToBottom(scrollView)
+                }
                 MyAccessibilityService.translatedText = translatedText
             }
 
             override fun onFailure(ErrorText: String?) {
-                Log.d(MainActivity.TAG, "onFailure: $ErrorText")
+                Log.d(TAG, "onFailure: $ErrorText")
             }
         })
         translateAPI.translate(

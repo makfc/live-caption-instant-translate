@@ -1,4 +1,4 @@
-package com.lzf.easyfloat.example.widget
+package com.makfc.live_caption_instant_translate.widget
 
 import android.annotation.SuppressLint
 import android.content.Context

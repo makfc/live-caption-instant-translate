@@ -13,26 +13,38 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.lzf.easyfloat.EasyFloat
 import com.lzf.easyfloat.enums.ShowPattern
-import com.lzf.easyfloat.example.widget.ScaleImage
 import com.lzf.easyfloat.interfaces.OnInvokeView
 import com.makfc.live_caption_instant_translate.service.AccessibilityServiceTool
 import com.makfc.live_caption_instant_translate.service.GlobalAppContext
 import com.makfc.live_caption_instant_translate.service.MyAccessibilityService
-import com.makfc.live_caption_instant_translate.service.MyAccessibilityService.Companion.EXTRA_FROM_LIVE_CAPTION
 import com.makfc.live_caption_instant_translate.service.MyAccessibilityService.Companion.EXTRA_IS_TRANSLATED_TEXT
-import com.makfc.live_caption_instant_translate.service.MyAccessibilityService.Companion.EXTRA_ON_SERVICE_CONNECTED
 import com.makfc.live_caption_instant_translate.service.MyAccessibilityService.Companion.EXTRA_TEXT
+import com.makfc.live_caption_instant_translate.service.MyAccessibilityService.Companion.TAG_SCALE_FLOAT
 import com.makfc.live_caption_instant_translate.translate_api.Language
 import com.makfc.live_caption_instant_translate.translate_api.TranslateAPI
+import com.makfc.live_caption_instant_translate.widget.ScaleImage
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlin.math.max
 
 class MainActivity : AppCompatActivity() {
     companion object {
+        var instance: MainActivity? = null
         const val TAG = BuildConfig.APPLICATION_ID
-        const val TAG_SCALE_FLOAT = "scaleFloat"
         val ACTION_BROADCAST =
             MainActivity::class.java.name + "Broadcast"
+
+        fun getScrollViewBottomDelta(scrollView: ScrollView): Int {
+            val lastChild = scrollView.getChildAt(scrollView.childCount - 1)
+            val bottom = lastChild.bottom + scrollView.paddingBottom
+            val sy = scrollView.scrollY
+            val sh = scrollView.height
+            return bottom - (sy + sh)
+        }
+
+        fun scrollToBottom(scrollView: ScrollView) {
+            val delta = getScrollViewBottomDelta(scrollView)
+            scrollView.smoothScrollBy(0, delta)
+        }
     }
 
     var text: String? = ""
@@ -44,6 +56,7 @@ class MainActivity : AppCompatActivity() {
     private val translateAPI = TranslateAPI()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        instance = this
         super.onCreate(savedInstanceState)
         Log.d(TAG, "onCreate")
         setContentView(R.layout.activity_main)
@@ -103,52 +116,23 @@ class MainActivity : AppCompatActivity() {
                 Log.d(TAG, "onFailure: $ErrorText")
             }
         })
-
-        translateAPI.translate(
-            Language.AUTO_DETECT,
-            Language.CHINESE_TRADITIONAL,
-            textView_transcript.text.toString()
-        )
-
-
-        EasyFloat.with(this)
-            .setTag(TAG_SCALE_FLOAT)
-            .setShowPattern(ShowPattern.BACKGROUND)
-            .setLocation(200, 500)
-            .setAppFloatAnimator(null)
-            .setLayout(R.layout.float_app_scale, OnInvokeView {
-                val content = it.findViewById<RelativeLayout>(R.id.rlContent)
-                val params = content.layoutParams as FrameLayout.LayoutParams
-                it.findViewById<ScaleImage>(R.id.ivScale).onScaledListener =
-                    object : ScaleImage.OnScaledListener {
-                        override fun onScaled(x: Float, y: Float, event: MotionEvent) {
-                            params.width = max(params.width + x.toInt(), 100)
-                            params.height = max(params.height + y.toInt(), 100)
-                            content.layoutParams = params
-                        }
-                    }
-
-                it.findViewById<ImageView>(R.id.ivClose).setOnClickListener {
-                    Log.d(TAG, "dismissAppFloat: $TAG_SCALE_FLOAT")
-                    EasyFloat.hideAppFloat(TAG_SCALE_FLOAT)
-                }
-            })
-            .show()
-        EasyFloat.hideAppFloat(TAG_SCALE_FLOAT)
     }
 
     override fun onResume() {
         super.onResume()
         Log.d(TAG, "onResume")
-//        setText()
-/*        val intent =
-            Intent(ACTION_BROADCAST)
-        LocalBroadcastManager.getInstance(this).sendBroadcast(intent)*/
+        EasyFloat.dismissAppFloat(TAG_SCALE_FLOAT)
+    }
+
+    override fun onPause() {
+        Log.d(TAG, "onPause")
+        MyAccessibilityService.instance?.showEasyFloat(this)
+        super.onPause()
     }
 
     override fun onDestroy() {
-        super.onDestroy()
         Log.d(TAG, "onDestroy")
+        super.onDestroy()
     }
 
 /*    override fun onSaveInstanceState(outState: Bundle) {
@@ -242,25 +226,7 @@ class MainActivity : AppCompatActivity() {
             scrollView.post { scrollToBottom(scrollView) }
             textView_transcript2.text = translatedText
             scrollView2.post { scrollToBottom(scrollView2) }
-            EasyFloat.showAppFloat(TAG_SCALE_FLOAT)
-            EasyFloat.getAppFloatView(TAG_SCALE_FLOAT)?.apply {
-                findViewById<TextView>(R.id.textView).text = translatedText
-                val scrollView = findViewById<ScrollView>(R.id.scrollView)
-                scrollToBottom(scrollView)
-            }
         }
     }
 
-    private fun getScrollViewBottomDelta(scrollView: ScrollView): Int {
-        val lastChild = scrollView.getChildAt(scrollView.childCount - 1)
-        val bottom = lastChild.bottom + scrollView.paddingBottom
-        val sy = scrollView.scrollY
-        val sh = scrollView.height
-        return bottom - (sy + sh)
-    }
-
-    private fun scrollToBottom(scrollView: ScrollView) {
-        val delta = getScrollViewBottomDelta(scrollView)
-        scrollView.smoothScrollBy(0, delta)
-    }
 }

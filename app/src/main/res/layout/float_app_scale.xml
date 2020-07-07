@@ -34,10 +34,10 @@
             android:textSize="@dimen/text_size"
             android:textStyle="bold"
             app:outlineColor="#000000"
-            app:outlineWidth="0.6" />
+            app:outlineWidth="0.4" />
     </ScrollView>
 
-    <com.lzf.easyfloat.example.widget.ScaleImage
+    <com.makfc.live_caption_instant_translate.widget.ScaleImage
         android:id="@+id/ivScale"
         android:layout_width="36dp"
         android:layout_height="36dp"
