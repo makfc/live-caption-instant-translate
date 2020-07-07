@@ -1,5 +1,6 @@
 package com.makfc.live_caption_instant_translate.translate_api
 
+import android.annotation.SuppressLint
 import android.os.AsyncTask
 import android.text.TextUtils
 import com.makfc.live_caption_instant_translate.translate_api.Token.msCookieManager
@@ -27,6 +28,7 @@ class TranslateAPI {
         async.execute()
     }
 
+    @SuppressLint("StaticFieldLeak")
     internal inner class Async : AsyncTask<String?, String?, String?>() {
         override fun doInBackground(vararg params: String?): String? {
             if (token == null)
