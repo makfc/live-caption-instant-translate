@@ -1,13 +1,17 @@
 package com.lzf.easyfloat.widget.appfloat
 
 import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.annotation.SuppressLint
 import android.app.Service
 import android.content.Context
 import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.os.Build
+import android.util.Log
 import android.view.*
+import android.view.animation.LinearInterpolator
+import com.lzf.easyfloat.BuildConfig
 import com.lzf.easyfloat.anim.AppFloatAnimatorManager
 import com.lzf.easyfloat.data.FloatConfig
 import com.lzf.easyfloat.enums.ShowPattern
@@ -170,7 +174,24 @@ internal class AppFloatManager(val context: Context, var config: FloatConfig) {
         if (frameLayout == null) return
         // 如果用户主动隐藏浮窗，则该值为false
         config.needShow = needShow
-        frameLayout?.visibility = visible
+        Log.d(BuildConfig.APPLICATION_ID, "visible: $visible")
+        Log.d(BuildConfig.APPLICATION_ID, "needShow: $needShow")
+        frameLayout!!.apply {
+            alpha = if (needShow) 0f else 1f
+            animate()
+                .alpha(if (needShow) 1f else 0f)
+                .setDuration(500)
+                .setListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationStart(animation: Animator?) {
+                        if (frameLayout?.visibility == View.GONE)
+                            frameLayout?.visibility = visible
+                    }
+                    override fun onAnimationEnd(animation: Animator?) {
+                        Log.d(BuildConfig.APPLICATION_ID, "onAnimationEnd: ${frameLayout?.visibility}")
+                        frameLayout?.visibility = visible
+                    }
+                })
+        }
         if (visible == View.VISIBLE) {
             config.isShow = true
             if (frameLayout!!.childCount > 0) {

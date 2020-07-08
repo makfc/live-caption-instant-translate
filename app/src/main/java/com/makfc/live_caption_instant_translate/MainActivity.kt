@@ -63,7 +63,7 @@ class MainActivity : AppCompatActivity() {
         GlobalAppContext.set(this.application)
         checkAccessibility()
 
-        textView_transcript.setOnClickListener { v ->
+/*        textView_transcript.setOnClickListener { v ->
             if (!textView_transcript.hasSelection()) {
                 setText()
             }
@@ -73,7 +73,7 @@ class MainActivity : AppCompatActivity() {
             if (!textView_transcript.hasSelection()) {
                 setText()
             }
-        }
+        }*/
 
 /*        scrollView.viewTreeObserver
             .addOnScrollChangedListener {
@@ -126,7 +126,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         Log.d(TAG, "onPause")
-        MyAccessibilityService.instance?.showEasyFloat(this)
+//        MyAccessibilityService.instance?.showEasyFloat()
         super.onPause()
     }
 
