@@ -13,14 +13,15 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 class TranslateAPI {
+    companion object {
+        var token: Token? = null
+    }
     var resp: String? = null
-    var url: String? = null
-    var langFrom: String? = null
-    var langTo: String? = null
-    var word: String? = null
-    var token: Token? = null
+    lateinit var langFrom: String
+    lateinit var langTo: String
+    lateinit var word: String
 
-    fun translate(langFrom: String?, langTo: String?, text: String?) {
+    fun translate(langFrom: String, langTo: String, text: String) {
         this.langFrom = langFrom
         this.langTo = langTo
         word = text
@@ -36,7 +37,7 @@ class TranslateAPI {
 
 //            Log.d(MainActivity.TAG, "token: ${token!!.tkk[0]}")
             try {
-                url = "https://translate.googleapis.com/translate_a/single?" +
+                val url = "https://translate.googleapis.com/translate_a/single?" +
                         "anno=3" +
                         "&client=webapp" +
 //                        "&format=text" +
@@ -56,7 +57,7 @@ class TranslateAPI {
                         "&pc=1&ssel=0&tsel=0&kc=2" //+
 //                        "&q=" + URLEncoder.encode(word, "UTF-8")
                 val q = "q=" + URLEncoder.encode(word, "UTF-8")
-//                Log.d(MainActivity.TAG, "url: $url")
+//                Log.d(TAG, "url: $url")
                 val obj = URL(url)
                 val con =
                     obj.openConnection() as HttpURLConnection
@@ -108,9 +109,11 @@ class TranslateAPI {
                         temp += doubleNewLine + currentLine[1].toString()
                             .replace("\\ n", "\n")
                             .replace("\\n", "\n")
+                            .replace("\\", "")
                         temp += "\n" + currentLine[0].toString()
                             .replace("\\ n", "\n")
                             .replace("\\n", "\n")
+                            .replace("\\", "")
                         doubleNewLine = "\n\n"
                     }
 //                    Log.d(ContentValues.TAG, "onPostExecute: $temp")
@@ -120,7 +123,7 @@ class TranslateAPI {
                         listener!!.onFailure("Invalid Input String")
                     }
                 } catch (e: JSONException) {
-                    listener!!.onFailure(e.localizedMessage)
+                    listener!!.onFailure(e.localizedMessage ?: e.toString())
                     e.printStackTrace()
                 }
             }
@@ -134,7 +137,7 @@ class TranslateAPI {
     }
 
     interface TranslateListener {
-        fun onSuccess(translatedText: String?)
-        fun onFailure(ErrorText: String?)
+        fun onSuccess(translatedText: String)
+        fun onFailure(ErrorText: String)
     }
 }

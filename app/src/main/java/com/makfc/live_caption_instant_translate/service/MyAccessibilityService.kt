@@ -25,8 +25,10 @@ import com.makfc.live_caption_instant_translate.R
 import com.makfc.live_caption_instant_translate.translate_api.Language
 import com.makfc.live_caption_instant_translate.translate_api.TranslateAPI
 import com.makfc.live_caption_instant_translate.widget.ScaleImage
+import kotlinx.coroutines.*
 import org.bitbucket.cowwoc.diffmatchpatch.DiffMatchPatch
 import org.bitbucket.cowwoc.diffmatchpatch.DiffMatchPatch.Diff
+import kotlin.coroutines.resume
 import kotlin.math.max
 
 
@@ -38,19 +40,38 @@ class MyAccessibilityService : AccessibilityService() {
         val ACTION_BROADCAST =
             MyAccessibilityService::class.java.name + "Broadcast"
         const val EXTRA_TEXT = "extra_text"
-        const val EXTRA_CAPTION_SOURCE = "extra_caption_source"
-        const val EXTRA_FROM_LIVE_CAPTION = "extra_from_live_caption"
-        const val EXTRA_FROM_YOUTUBE_CAPTION = "extra_from_youtube_caption"
         const val EXTRA_IS_TRANSLATED_TEXT = "extra_is_translated_text"
-        const val EXTRA_ON_SERVICE_CONNECTED = "extra_on_service_connected"
         const val START_MESSAGE = "Turn on Live Caption and play some media that says something..."
         var previoustext = ""
         var translatedText = ""
         var transcript = ""
+
+        @ExperimentalCoroutinesApi
+        suspend fun translate(text: String): String? =
+            suspendCancellableCoroutine { cont ->
+                val translateAPI = TranslateAPI()
+                    translateAPI.setTranslateListener(object : TranslateAPI.TranslateListener {
+                        override fun onSuccess(translatedText: String) {
+//                        Log.d(TAG, "onSuccess: $translatedText")
+                            cont.resume(translatedText)
+                        }
+
+                        override fun onFailure(ErrorText: String) {
+                            Log.d(TAG, "onFailure: $ErrorText")
+                            cont.resume(null)
+                        }
+                    })
+                    translateAPI.translate(
+                        Language.AUTO_DETECT,
+                        Language.CHINESE_TRADITIONAL,
+                        text
+                    )
+            }
     }
 
-    private val translateAPI = TranslateAPI()
+//    val translateAPI = TranslateAPI()
 
+    @ExperimentalCoroutinesApi
     @SuppressLint("ClickableViewAccessibility")
     override fun onServiceConnected() {
         instance = this
@@ -60,13 +81,12 @@ class MyAccessibilityService : AccessibilityService() {
                 override fun onReceive(context: Context, intent: Intent) {
                     Log.d(TAG, "onReceive: ${MainActivity.ACTION_BROADCAST}")
                     if (transcript.isEmpty()) {
-                        sendBroadcastMessage(START_MESSAGE, EXTRA_FROM_LIVE_CAPTION, false)
-                        translate(START_MESSAGE, EXTRA_FROM_LIVE_CAPTION)
+                        sendBroadcastMessage(START_MESSAGE, false)
+                        setTranslatedText(START_MESSAGE, false)
                     } else {
-                        sendBroadcastMessage(transcript, EXTRA_FROM_LIVE_CAPTION, false)
-                        translate(transcript, EXTRA_FROM_LIVE_CAPTION)
+                        sendBroadcastMessage(transcript, false)
+                        setTranslatedText(transcript, false)
                     }
-//                    sendBroadcastMessage(translatedText, EXTRA_FROM_LIVE_CAPTION, true)
                 }
             }, IntentFilter(MainActivity.ACTION_BROADCAST)
         )
@@ -79,13 +99,12 @@ class MyAccessibilityService : AccessibilityService() {
 
     fun showEasyFloat() {
         EasyFloat.init(this.application, true)
-        EasyFloat.with(this)
+        EasyFloat.with(MainActivity.instance!!.applicationContext)
             .setTag(TAG_SCALE_FLOAT)
             .setShowPattern(ShowPattern.ALL_TIME)
             .setLocation(50, 500)
             .setAppFloatAnimator(AppFloatFadeInOutAnimator())
-//            .setAppFloatAnimator(null)
-//            .setFilter(MainActivity::class.java)
+            .setFilter(MainActivity::class.java)
             .setLayout(R.layout.float_app_scale, OnInvokeView {
                 val content = it.findViewById<RelativeLayout>(R.id.rlContent)
                 val params = content.layoutParams as FrameLayout.LayoutParams
@@ -106,7 +125,6 @@ class MyAccessibilityService : AccessibilityService() {
                 textView.setOnLongClickListener {
 //                    Log.d(TAG, "textView: OnLongClick")
                     val intent = Intent(this, MainActivity::class.java).apply {
-                        putExtra(EXTRA_ON_SERVICE_CONNECTED, "")
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK
                     }
                     startActivity(intent)
@@ -128,6 +146,7 @@ class MyAccessibilityService : AccessibilityService() {
 
     override fun onInterrupt() {}
 
+    @ExperimentalCoroutinesApi
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
 //        Log.d(TAG, "onAccessibilityEvent: $event")
         when (event?.packageName) {
@@ -172,40 +191,42 @@ class MyAccessibilityService : AccessibilityService() {
                             subtitleStr == previoustext ||
                             previoustext.endsWith(subtitleStr)
                         ) return
-//                        Log.d(TAG, "sendBroadcastMessage: $subtitleStr")
+                        Log.d(TAG, "subtitleStr: $subtitleStr")
 
 
-                        val diff = DiffMatchPatch().diffMain(previoustext, subtitleStr)
-//                        Log.d(TAG, "diff: $diff")
-                        if (diff.count() > 3) {
-                            transcript += "\n" + subtitleStr
-                            translate(subtitleStr, EXTRA_FROM_YOUTUBE_CAPTION)
-                        }else  {
+                        val diffs = DiffMatchPatch().diffMain(previoustext, subtitleStr)
+//                        Log.d(TAG, "diffs: diffs")
+
+                        // Whether it is the automatic subtitle
+                        if (diffs.count() <= 3) {
                             val insertText: String =
-                                DiffMatchPatch().diffMain(previoustext, subtitleStr)
-                                    .first { diff: Diff? ->
-                                        diff!!.operation == DiffMatchPatch.Operation.INSERT
-                                    }.text
+                                diffs.first { diff: Diff? ->
+                                    diff!!.operation == DiffMatchPatch.Operation.INSERT
+                                }.text
                             transcript += insertText
-                            translate(transcript, EXTRA_FROM_YOUTUBE_CAPTION)
+                            setTranslatedText(transcript)
+                        } else {
+                            transcript += "\n" + subtitleStr
+                            setTranslatedText(subtitleStr, true, false)
+                            setTranslatedText(transcript, false)
                         }
 
 //                        Log.d(TAG, "transcript: $transcript")
-                        sendBroadcastMessage(transcript, EXTRA_FROM_YOUTUBE_CAPTION, false)
+                        sendBroadcastMessage(transcript, false)
                         previoustext = subtitleStr
                         return
                     }
                     "com.google.android.as" -> {
-                        var text = source.text as String
+                        var text = source.text?: return
                         // Ignore unnecessary text
                         if (text.isEmpty() ||
                             text == previoustext
                         ) return
                         // Remove TextView Title
                         text = text.substring(text.indexOf("\n") + 1)
-                        translate(text, EXTRA_FROM_LIVE_CAPTION)
+                        setTranslatedText(text)
                         transcript = text
-                        sendBroadcastMessage(transcript, EXTRA_FROM_LIVE_CAPTION, false)
+                        sendBroadcastMessage(transcript, false)
                         previoustext = text
                         return
                     }
@@ -227,7 +248,10 @@ class MyAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun translate(text: String, captionSource: String) {
+
+    @ExperimentalCoroutinesApi
+    private fun setTranslatedText(text: String, isSetFloatText: Boolean = true, isSendBroadcast: Boolean = true) {
+
         var preProcessText = text.replace("\n", "\\n")
         val maxCharLen = 1000
         if (preProcessText.length > maxCharLen) {
@@ -235,10 +259,13 @@ class MyAccessibilityService : AccessibilityService() {
                 .indexOf(" ", preProcessText.length - maxCharLen)
             preProcessText = preProcessText.takeLast(preProcessText.length - index)
         }
-        translateAPI.setTranslateListener(object : TranslateAPI.TranslateListener {
-            override fun onSuccess(translatedText: String?) {
-//                Log.d(TAG, "onSuccess: $translatedText")
-                if (translatedText == null) return
+        GlobalScope.launch(Dispatchers.Main) {
+            val translatedText =
+                withContext(Dispatchers.IO) { translate(preProcessText) } ?: return@launch
+//            val translatedText = translate(preProcessText) ?: return@launch
+//            Log.d(TAG, "translatedText: $translatedText")
+            MyAccessibilityService.translatedText = translatedText
+            if (isSetFloatText && MainActivity.isOnPause) {
                 if (EasyFloat.getAppFloatView(TAG_SCALE_FLOAT) == null) {
                     showEasyFloat()
                     Handler().postDelayed({
@@ -247,27 +274,21 @@ class MyAccessibilityService : AccessibilityService() {
                 } else {
                     setFloatText(translatedText)
                 }
-                sendBroadcastMessage(translatedText, captionSource, true)
-                MyAccessibilityService.translatedText = translatedText
             }
-
-            override fun onFailure(ErrorText: String?) {
-                Log.d(TAG, "onFailure: $ErrorText")
+            if (isSendBroadcast) {
+//                Log.d(TAG, "sendBroadcastMessage: $translatedText")
+                sendBroadcastMessage(translatedText, true)
             }
-        })
-        translateAPI.translate(
-            Language.AUTO_DETECT,
-            Language.CHINESE_TRADITIONAL,
-            preProcessText
-        )
+        }
     }
+
 
     private fun setFloatText(text: String) {
         EasyFloat.getAppFloatView(TAG_SCALE_FLOAT)?.apply {
             if (!isShown) EasyFloat.showAppFloat(TAG_SCALE_FLOAT)
-            findViewById<TextView>(R.id.textView).text = text
             val scrollView = findViewById<ScrollView>(R.id.scrollView)
-            scrollToBottom(scrollView)
+            findViewById<TextView>(R.id.textView).text = text
+            scrollView.post { scrollToBottom(scrollView) }
         }
     }
 
@@ -333,7 +354,6 @@ class MyAccessibilityService : AccessibilityService() {
 
     private fun sendBroadcastMessage(
         text: String?,
-        captionSource: String,
         isTranslatedText: Boolean
     ) {
         val intent =
@@ -341,10 +361,6 @@ class MyAccessibilityService : AccessibilityService() {
         intent.putExtra(
             EXTRA_TEXT,
             text
-        )
-        intent.putExtra(
-            EXTRA_CAPTION_SOURCE,
-            captionSource
         )
         intent.putExtra(
             EXTRA_IS_TRANSLATED_TEXT,

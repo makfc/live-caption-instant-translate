@@ -6,25 +6,21 @@ import android.util.Log
 import android.view.Menu
 import android.view.MenuInflater
 import android.view.MenuItem
-import android.view.MotionEvent
-import android.widget.*
+import android.widget.ScrollView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.lzf.easyfloat.EasyFloat
-import com.lzf.easyfloat.enums.ShowPattern
-import com.lzf.easyfloat.interfaces.OnInvokeView
 import com.makfc.live_caption_instant_translate.service.AccessibilityServiceTool
 import com.makfc.live_caption_instant_translate.service.GlobalAppContext
 import com.makfc.live_caption_instant_translate.service.MyAccessibilityService
 import com.makfc.live_caption_instant_translate.service.MyAccessibilityService.Companion.EXTRA_IS_TRANSLATED_TEXT
 import com.makfc.live_caption_instant_translate.service.MyAccessibilityService.Companion.EXTRA_TEXT
 import com.makfc.live_caption_instant_translate.service.MyAccessibilityService.Companion.TAG_SCALE_FLOAT
-import com.makfc.live_caption_instant_translate.translate_api.Language
 import com.makfc.live_caption_instant_translate.translate_api.TranslateAPI
-import com.makfc.live_caption_instant_translate.widget.ScaleImage
 import kotlinx.android.synthetic.main.activity_main.*
-import kotlin.math.max
+import kotlinx.coroutines.*
+
 
 class MainActivity : AppCompatActivity() {
     companion object {
@@ -32,6 +28,7 @@ class MainActivity : AppCompatActivity() {
         const val TAG = BuildConfig.APPLICATION_ID
         val ACTION_BROADCAST =
             MainActivity::class.java.name + "Broadcast"
+        var isOnPause: Boolean = true
 
         fun getScrollViewBottomDelta(scrollView: ScrollView): Int {
             val lastChild = scrollView.getChildAt(scrollView.childCount - 1)
@@ -47,9 +44,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    var text: String? = ""
-    var translatedText: String? = ""
-    var captionSource: String? = null
+    var text: String = ""
+    var translatedText: String = ""
 
     //    var isStarted = false
 //    var previousSubtitleStr = ""
@@ -63,7 +59,7 @@ class MainActivity : AppCompatActivity() {
         GlobalAppContext.set(this.application)
         checkAccessibility()
 
-/*        textView_transcript.setOnClickListener { v ->
+        textView_transcript.setOnClickListener { v ->
             if (!textView_transcript.hasSelection()) {
                 setText()
             }
@@ -73,7 +69,7 @@ class MainActivity : AppCompatActivity() {
             if (!textView_transcript.hasSelection()) {
                 setText()
             }
-        }*/
+        }
 
 /*        scrollView.viewTreeObserver
             .addOnScrollChangedListener {
@@ -82,51 +78,41 @@ class MainActivity : AppCompatActivity() {
 //                Log.d(TAG, "delta: ${getScrollViewBottomDelta(scrollView)}")
             }*/
 
-        val intent =
-            Intent(ACTION_BROADCAST)
-        LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
-
         LocalBroadcastManager.getInstance(this).registerReceiver(
             object : BroadcastReceiver() {
                 override fun onReceive(context: Context, intent: Intent) {
-                    captionSource =
-                        intent.getStringExtra(MyAccessibilityService.EXTRA_CAPTION_SOURCE)
                     val isTranslatedText = intent.getBooleanExtra(
                         EXTRA_IS_TRANSLATED_TEXT,
                         false
                     )
-                    if (isTranslatedText)
-                        translatedText = intent.getStringExtra(EXTRA_TEXT)
-                    else
-                        text = intent.getStringExtra(EXTRA_TEXT)
-                    setText()
+                    val extraText = intent.getStringExtra(EXTRA_TEXT) ?: ""
+//                    Log.d(TAG, "EXTRA_IS_TRANSLATED_TEXT: $isTranslatedText")
+//                    Log.d(TAG, "EXTRA_TEXT: $extraText")
+                    if (isTranslatedText) {
+                        if (extraText == translatedText) return
+                        translatedText = extraText
+                        setText()
+                    } else {
+                        text = extraText
+                    }
                 }
             }, IntentFilter(MyAccessibilityService.ACTION_BROADCAST)
         )
-
-        translateAPI.setTranslateListener(object : TranslateAPI.TranslateListener {
-            override fun onSuccess(translatedText: String?) {
-//                Log.d(TAG, "onSuccess: $translatedText")
-                if (translatedText == null) return
-                textView_transcript2.text = translatedText
-                scrollView2.post { scrollToBottom(scrollView2) }
-            }
-
-            override fun onFailure(ErrorText: String?) {
-                Log.d(TAG, "onFailure: $ErrorText")
-            }
-        })
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
     }
 
     override fun onResume() {
         super.onResume()
         Log.d(TAG, "onResume")
+        isOnPause = false
         EasyFloat.dismissAppFloat(TAG_SCALE_FLOAT)
+        val intent = Intent(ACTION_BROADCAST)
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
     }
 
     override fun onPause() {
         Log.d(TAG, "onPause")
-//        MyAccessibilityService.instance?.showEasyFloat()
+        isOnPause = true
         super.onPause()
     }
 
@@ -155,18 +141,22 @@ class MainActivity : AppCompatActivity() {
         return super.onCreateOptionsMenu(menu)
     }
 
+    @ExperimentalCoroutinesApi
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         // Handle item selection
         return when (item.itemId) {
             R.id.translateAll -> {
-                if (text == null || text!!.isEmpty()) return true
-                val preProcessText = text!!.replace("\n", "\\n")
+                if (text.isEmpty()) return true
+                val preProcessText = text.replace("\n", "\\n")
                 scrollView.post { scrollToBottom(scrollView) }
-                translateAPI.translate(
-                    Language.AUTO_DETECT,
-                    Language.CHINESE_TRADITIONAL,
-                    preProcessText
-                )
+                GlobalScope.launch(Dispatchers.Main) {
+                    val translatedText =
+                        withContext(Dispatchers.IO) {
+                            MyAccessibilityService.translate(preProcessText)
+                        } ?: return@launch
+                    textView_transcript2.text = translatedText
+                    scrollView2.post { scrollToBottom(scrollView2) }
+                }
                 true
             }
             R.id.googleTranslate -> {
@@ -213,17 +203,12 @@ class MainActivity : AppCompatActivity() {
     private fun setText() {
         val startSelection2: Int = textView_transcript2.selectionStart
         val endSelection2: Int = textView_transcript2.selectionEnd
-        if (text != null
-            && startSelection2 == endSelection2
-            && getScrollViewBottomDelta(scrollView2) < 10
+        if (startSelection2 == endSelection2
+            && getScrollViewBottomDelta(scrollView2) < 100
         ) {
-/*            if (captionSource == EXTRA_FROM_LIVE_CAPTION) {
-                textView_transcript.text = text
-            } else if (captionSource == EXTRA_FROM_YOUTUBE_CAPTION) {
-                textView_transcript.append("\n\n" + text)
-            }*/
-            textView_transcript.text = text
-            scrollView.post { scrollToBottom(scrollView) }
+//            Log.d(TAG, "translatedText: $translatedText")
+//            textView_transcript.text = text
+//            scrollView.post { scrollToBottom(scrollView) }
             textView_transcript2.text = translatedText
             scrollView2.post { scrollToBottom(scrollView2) }
         }

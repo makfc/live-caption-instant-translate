@@ -18,9 +18,9 @@ import java.util.Map;
 
 public class Token {
 
-    String[] tkk;
-    static final String COOKIES_HEADER = "Set-Cookie";
-    static java.net.CookieManager msCookieManager = new CookieManager();
+    private String[] tkk;
+    private static final String COOKIES_HEADER = "Set-Cookie";
+    static CookieManager msCookieManager = new CookieManager();
 
     public Token() {
         getTKK();
@@ -53,7 +53,7 @@ public class Token {
 
                 int index = response.indexOf("tkk:'") + 5;
                 tkk = response.substring(index, response.indexOf("'", index)).split("\\.");
-                Log.d(MainActivity.TAG, "token: "+ tkk[0]);
+                Log.d(MainActivity.TAG, "tkk: "+ String.join(".", tkk));
                 Log.d(MainActivity.TAG, "cookies: "+ msCookieManager.getCookieStore().getCookies());
                 return true;
             }
