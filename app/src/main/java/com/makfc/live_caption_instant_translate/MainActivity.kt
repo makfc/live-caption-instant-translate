@@ -203,7 +203,8 @@ class MainActivity : AppCompatActivity() {
     private fun setText() {
         val startSelection2: Int = textView_transcript2.selectionStart
         val endSelection2: Int = textView_transcript2.selectionEnd
-        if (startSelection2 == endSelection2
+        if (translatedText.isNotEmpty()
+            && startSelection2 == endSelection2
             && getScrollViewBottomDelta(scrollView2) < 100
         ) {
 //            Log.d(TAG, "translatedText: $translatedText")
