@@ -120,6 +120,7 @@ class MyAccessibilityService : AccessibilityService() {
                 it.findViewById<ImageView>(R.id.ivClose).setOnClickListener {
                     Log.d(MainActivity.TAG, "hideAppFloat: $TAG_SCALE_FLOAT")
                     EasyFloat.hideAppFloat(TAG_SCALE_FLOAT)
+                    transcript = ""
                 }
                 val textView = it.findViewById<TextView>(R.id.textView)
                 textView.setOnLongClickListener {
