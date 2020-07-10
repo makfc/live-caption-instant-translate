@@ -137,7 +137,7 @@ class MyAccessibilityService : AccessibilityService() {
                     EasyFloat.getAppFloatView(TAG_SCALE_FLOAT)?.apply {
 //                        Log.d(TAG, "isTranslucent: $isTranslucent")
                         findViewById<RelativeLayout>(R.id.rlContent)
-                            .setBackgroundResource(if (!isTranslucent) R.color.translucent else 0)
+                            .setBackgroundResource(if (!isTranslucent) R.drawable.floating_window_bg_top else 0)
                         isTranslucent = !isTranslucent
                     }
                 }
