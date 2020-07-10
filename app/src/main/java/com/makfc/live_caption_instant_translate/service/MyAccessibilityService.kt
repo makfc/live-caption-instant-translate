@@ -43,15 +43,15 @@ class MyAccessibilityService : AccessibilityService() {
         const val EXTRA_IS_TRANSLATED_TEXT = "extra_is_translated_text"
         const val START_MESSAGE = "Turn on Live Caption and play some media that says something..."
         var previoustext = ""
-        var translatedText = ""
+        var translatedDualLangText = ""
         var transcript = ""
 
         @ExperimentalCoroutinesApi
-        suspend fun translate(text: String): String? =
+        suspend fun translate(text: String): TranslateAPI.TranslateResult? =
             suspendCancellableCoroutine { cont ->
                 val translateAPI = TranslateAPI()
                     translateAPI.setTranslateListener(object : TranslateAPI.TranslateListener {
-                        override fun onSuccess(translatedText: String) {
+                        override fun onSuccess(translatedText: TranslateAPI.TranslateResult) {
 //                        Log.d(TAG, "onSuccess: $translatedText")
                             cont.resume(translatedText)
                         }
@@ -82,10 +82,10 @@ class MyAccessibilityService : AccessibilityService() {
                     Log.d(TAG, "onReceive: ${MainActivity.ACTION_BROADCAST}")
                     if (transcript.isEmpty()) {
                         sendBroadcastMessage(START_MESSAGE, false)
-                        setTranslatedText(START_MESSAGE, false)
+                        setTranslatedDualLangText(START_MESSAGE, false)
                     } else {
                         sendBroadcastMessage(transcript, false)
-                        setTranslatedText(transcript, false)
+                        setTranslatedDualLangText(transcript, false)
                     }
                 }
             }, IntentFilter(MainActivity.ACTION_BROADCAST)
@@ -130,14 +130,14 @@ class MyAccessibilityService : AccessibilityService() {
                     startActivity(intent)
                     false
                 }
-                var istranslucent = false
+                var isTranslucent = false
                 textView.setOnClickListener {
 //                    Log.d(TAG, "textView: OnClick")
                     EasyFloat.getAppFloatView(TAG_SCALE_FLOAT)?.apply {
-//                        Log.d(TAG, "istranslucent: $istranslucent")
+//                        Log.d(TAG, "isTranslucent: $isTranslucent")
                         findViewById<RelativeLayout>(R.id.rlContent)
-                            .setBackgroundResource(if (!istranslucent) R.color.translucent else 0)
-                        istranslucent = !istranslucent
+                            .setBackgroundResource(if (!isTranslucent) R.color.translucent else 0)
+                        isTranslucent = !isTranslucent
                     }
                 }
             })
@@ -191,7 +191,7 @@ class MyAccessibilityService : AccessibilityService() {
                             subtitleStr == previoustext ||
                             previoustext.endsWith(subtitleStr)
                         ) return
-                        Log.d(TAG, "subtitleStr: $subtitleStr")
+//                        Log.d(TAG, "subtitleStr: $subtitleStr")
 
 
                         val diffs = DiffMatchPatch().diffMain(previoustext, subtitleStr)
@@ -204,11 +204,11 @@ class MyAccessibilityService : AccessibilityService() {
                                     diff!!.operation == DiffMatchPatch.Operation.INSERT
                                 }.text
                             transcript += insertText
-                            setTranslatedText(transcript)
+                            setTranslatedDualLangText(transcript)
                         } else {
                             transcript += "\n" + subtitleStr
-                            setTranslatedText(subtitleStr, true, false)
-                            setTranslatedText(transcript, false)
+                            setTranslatedDualLangText(subtitleStr, true, false)
+                            setTranslatedDualLangText(transcript, false)
                         }
 
 //                        Log.d(TAG, "transcript: $transcript")
@@ -224,7 +224,7 @@ class MyAccessibilityService : AccessibilityService() {
                         ) return
                         // Remove TextView Title
                         text = text.substring(text.indexOf("\n") + 1)
-                        setTranslatedText(text)
+                        setTranslatedDualLangText(text)
                         transcript = text
                         sendBroadcastMessage(transcript, false)
                         previoustext = text
@@ -250,34 +250,34 @@ class MyAccessibilityService : AccessibilityService() {
 
 
     @ExperimentalCoroutinesApi
-    private fun setTranslatedText(text: String, isSetFloatText: Boolean = true, isSendBroadcast: Boolean = true) {
+    private fun setTranslatedDualLangText(text: String, isSetFloatText: Boolean = true, isSendBroadcast: Boolean = true) {
 
         var preProcessText = text.replace("\n", "\\n")
-        val maxCharLen = 1000
+        val maxCharLen = 10000
         if (preProcessText.length > maxCharLen) {
             val index = preProcessText
                 .indexOf(" ", preProcessText.length - maxCharLen)
             preProcessText = preProcessText.takeLast(preProcessText.length - index)
         }
         GlobalScope.launch(Dispatchers.Main) {
-            val translatedText =
+            val translateResult =
                 withContext(Dispatchers.IO) { translate(preProcessText) } ?: return@launch
 //            val translatedText = translate(preProcessText) ?: return@launch
 //            Log.d(TAG, "translatedText: $translatedText")
-            MyAccessibilityService.translatedText = translatedText
+            translatedDualLangText = translateResult.dualLangText
             if (isSetFloatText && MainActivity.isOnPause) {
                 if (EasyFloat.getAppFloatView(TAG_SCALE_FLOAT) == null) {
                     showEasyFloat()
                     Handler().postDelayed({
-                        setFloatText(translatedText)
+                        setFloatText(translateResult.translatedText)
                     }, 0)
                 } else {
-                    setFloatText(translatedText)
+                    setFloatText(translateResult.translatedText)
                 }
             }
             if (isSendBroadcast) {
 //                Log.d(TAG, "sendBroadcastMessage: $translatedText")
-                sendBroadcastMessage(translatedText, true)
+                sendBroadcastMessage(translatedDualLangText, true)
             }
         }
     }

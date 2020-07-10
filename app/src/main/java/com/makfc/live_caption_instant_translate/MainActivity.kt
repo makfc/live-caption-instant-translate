@@ -1,7 +1,9 @@
 package com.makfc.live_caption_instant_translate
 
 import android.content.*
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import android.view.Menu
 import android.view.MenuInflater
@@ -58,6 +60,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         GlobalAppContext.set(this.application)
         checkAccessibility()
+        checkCanDrawOverlays()
 
         textView_transcript.setOnClickListener { v ->
             if (!textView_transcript.hasSelection()) {
@@ -150,11 +153,11 @@ class MainActivity : AppCompatActivity() {
                 val preProcessText = text.replace("\n", "\\n")
                 scrollView.post { scrollToBottom(scrollView) }
                 GlobalScope.launch(Dispatchers.Main) {
-                    val translatedText =
+                    val translateResult =
                         withContext(Dispatchers.IO) {
                             MyAccessibilityService.translate(preProcessText)
                         } ?: return@launch
-                    textView_transcript2.text = translatedText
+                    textView_transcript2.text = translateResult.dualLangText
                     scrollView2.post { scrollToBottom(scrollView2) }
                 }
                 true
@@ -194,6 +197,25 @@ class MainActivity : AppCompatActivity() {
                 .setTitle("提示")
                 .setPositiveButton("確定") { dialog, which ->
                     AccessibilityServiceTool.goToAccessibilitySetting()
+                }
+            val dialog = builder.create()
+            dialog.show()
+        }
+    }
+
+    private fun checkCanDrawOverlays() {
+        if (!Settings.canDrawOverlays(this)) {
+            val builder = AlertDialog.Builder(this)
+
+            builder.setMessage("Open Draw Overlays Permission?")
+                .setTitle("Permission Request")
+                .setPositiveButton("OK") { dialog, which ->
+                    startActivity(
+                        Intent(
+                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            Uri.parse("package:$packageName")
+                        )
+                    )
                 }
             val dialog = builder.create()
             dialog.show()

@@ -15,7 +15,17 @@ import java.nio.charset.StandardCharsets
 class TranslateAPI {
     companion object {
         var token: Token? = null
+
+        fun removeNewLineChar(text: String): String {
+            return text
+                .replace("\\ n", "\n")
+                .replace("\\n", "\n")
+                .replace("\\", "")
+        }
     }
+
+    data class TranslateResult(val translatedText: String, val dualLangText: String)
+
     var resp: String? = null
     lateinit var langFrom: String
     lateinit var langTo: String
@@ -94,7 +104,8 @@ class TranslateAPI {
         }
 
         override fun onPostExecute(s: String?) {
-            var temp = ""
+            var translatedText = ""
+            var dualLangText = ""
             if (resp == null) {
                 listener!!.onFailure("Network Error")
             } else {
@@ -106,19 +117,17 @@ class TranslateAPI {
                     for (i in 0 until total.length()) {
                         val currentLine = total[i] as JSONArray
                         if (currentLine[0].toString() == "null") continue
-                        temp += doubleNewLine + currentLine[1].toString()
-                            .replace("\\ n", "\n")
-                            .replace("\\n", "\n")
-                            .replace("\\", "")
-                        temp += "\n" + currentLine[0].toString()
-                            .replace("\\ n", "\n")
-                            .replace("\\n", "\n")
-                            .replace("\\", "")
+
+                        val targetLangText = removeNewLineChar(currentLine[0].toString())
+                        val sourceLangText = removeNewLineChar(currentLine[1].toString())
+                        translatedText += targetLangText
+                        dualLangText += doubleNewLine + sourceLangText
+                        dualLangText += "\n" + targetLangText
                         doubleNewLine = "\n\n"
                     }
 //                    Log.d(ContentValues.TAG, "onPostExecute: $temp")
-                    if (temp.length > 2) {
-                        listener!!.onSuccess(temp)
+                    if (translatedText.length > 2) {
+                        listener!!.onSuccess(TranslateResult(translatedText, dualLangText))
                     } else {
                         listener!!.onFailure("Invalid Input String")
                     }
@@ -137,7 +146,7 @@ class TranslateAPI {
     }
 
     interface TranslateListener {
-        fun onSuccess(translatedText: String)
+        fun onSuccess(translatedText: TranslateResult)
         fun onFailure(ErrorText: String)
     }
 }
