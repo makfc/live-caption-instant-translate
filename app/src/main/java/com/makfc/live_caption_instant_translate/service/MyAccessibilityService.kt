@@ -22,20 +22,18 @@ import com.makfc.live_caption_instant_translate.BuildConfig
 import com.makfc.live_caption_instant_translate.MainActivity
 import com.makfc.live_caption_instant_translate.MainActivity.Companion.scrollToBottom
 import com.makfc.live_caption_instant_translate.R
-import com.makfc.live_caption_instant_translate.translate_api.Language
-import com.makfc.live_caption_instant_translate.translate_api.TranslateAPI
+import com.makfc.live_caption_instant_translate.translate_api.TranslateAPI.Companion.translate
 import com.makfc.live_caption_instant_translate.widget.ScaleImage
 import kotlinx.coroutines.*
 import org.bitbucket.cowwoc.diffmatchpatch.DiffMatchPatch
 import org.bitbucket.cowwoc.diffmatchpatch.DiffMatchPatch.Diff
-import kotlin.coroutines.resume
 import kotlin.math.max
 
 
 class MyAccessibilityService : AccessibilityService() {
     companion object {
         var instance: MyAccessibilityService? = null
-        private const val TAG = BuildConfig.APPLICATION_ID
+        const val TAG = BuildConfig.APPLICATION_ID
         const val TAG_SCALE_FLOAT = "scaleFloat"
         val ACTION_BROADCAST =
             MyAccessibilityService::class.java.name + "Broadcast"
@@ -45,28 +43,6 @@ class MyAccessibilityService : AccessibilityService() {
         var previoustext = ""
         var translatedDualLangText = ""
         var transcript = ""
-
-        @ExperimentalCoroutinesApi
-        suspend fun translate(text: String): TranslateAPI.TranslateResult? =
-            suspendCancellableCoroutine { cont ->
-                val translateAPI = TranslateAPI()
-                    translateAPI.setTranslateListener(object : TranslateAPI.TranslateListener {
-                        override fun onSuccess(translatedText: TranslateAPI.TranslateResult) {
-//                        Log.d(TAG, "onSuccess: $translatedText")
-                            cont.resume(translatedText)
-                        }
-
-                        override fun onFailure(ErrorText: String) {
-                            Log.d(TAG, "onFailure: $ErrorText")
-                            cont.resume(null)
-                        }
-                    })
-                    translateAPI.translate(
-                        Language.AUTO_DETECT,
-                        Language.CHINESE_TRADITIONAL,
-                        text
-                    )
-            }
     }
 
 //    val translateAPI = TranslateAPI()
@@ -99,7 +75,7 @@ class MyAccessibilityService : AccessibilityService() {
 
     fun showEasyFloat() {
         EasyFloat.init(this.application, true)
-        EasyFloat.with(MainActivity.instance!!.applicationContext)
+        EasyFloat.with(MainActivity.instance?.applicationContext ?: this)
             .setTag(TAG_SCALE_FLOAT)
             .setShowPattern(ShowPattern.ALL_TIME)
             .setLocation(50, 500)

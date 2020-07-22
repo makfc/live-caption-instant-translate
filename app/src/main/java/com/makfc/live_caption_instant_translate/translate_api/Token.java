@@ -90,8 +90,8 @@ public class Token {
                         e.add(k >> 12 & 63 | 128);
                     } else {
                         e.add(k >> 12 | 224);
-                        e.add(k >> 6 & 63 | 128);
                     }
+                    e.add(k >> 6 & 63 | 128);
                 }
                 e.add(k & 63 | 128);
             }

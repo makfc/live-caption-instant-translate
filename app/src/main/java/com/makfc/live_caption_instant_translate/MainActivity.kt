@@ -155,7 +155,7 @@ class MainActivity : AppCompatActivity() {
                 GlobalScope.launch(Dispatchers.Main) {
                     val translateResult =
                         withContext(Dispatchers.IO) {
-                            MyAccessibilityService.translate(preProcessText)
+                            TranslateAPI.translate(preProcessText)
                         } ?: return@launch
                     textView_transcript2.text = translateResult.dualLangText
                     scrollView2.post { scrollToBottom(scrollView2) }

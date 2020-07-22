@@ -3,7 +3,11 @@ package com.makfc.live_caption_instant_translate.translate_api
 import android.annotation.SuppressLint
 import android.os.AsyncTask
 import android.text.TextUtils
+import android.util.Log
+import com.makfc.live_caption_instant_translate.MainActivity.Companion.TAG
 import com.makfc.live_caption_instant_translate.translate_api.Token.msCookieManager
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.suspendCancellableCoroutine
 import org.json.JSONArray
 import org.json.JSONException
 import java.io.DataOutputStream
@@ -11,6 +15,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import kotlin.coroutines.resume
 
 class TranslateAPI {
     companion object {
@@ -22,6 +27,28 @@ class TranslateAPI {
                 .replace("\\n", "\n")
                 .replace("\\", "")
         }
+
+        @ExperimentalCoroutinesApi
+        suspend fun translate(text: String): TranslateResult? =
+            suspendCancellableCoroutine { cont ->
+                val translateAPI = TranslateAPI()
+                translateAPI.setTranslateListener(object : TranslateListener {
+                    override fun onSuccess(translatedText: TranslateResult) {
+//                        Log.d(TAG, "onSuccess: $translatedText")
+                        cont.resume(translatedText)
+                    }
+
+                    override fun onFailure(ErrorText: String) {
+                        Log.d(TAG, "onFailure: $ErrorText")
+                        cont.resume(null)
+                    }
+                })
+                translateAPI.translate(
+                    Language.AUTO_DETECT,
+                    Language.CHINESE_TRADITIONAL,
+                    text
+                )
+            }
     }
 
     data class TranslateResult(val translatedText: String, val dualLangText: String)
