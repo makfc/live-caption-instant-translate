@@ -27,6 +27,7 @@ import com.makfc.live_caption_instant_translate.widget.ScaleImage
 import kotlinx.coroutines.*
 import org.bitbucket.cowwoc.diffmatchpatch.DiffMatchPatch
 import org.bitbucket.cowwoc.diffmatchpatch.DiffMatchPatch.Diff
+import java.util.*
 import kotlin.math.max
 
 
@@ -162,24 +163,35 @@ class MyAccessibilityService : AccessibilityService() {
                     "com.google.android.youtube",
                     "com.vanced.android.youtube" -> {
                         if (event.contentChangeTypes != CONTENT_CHANGE_TYPE_SUBTREE) return
-                        val subtitleStr = getYoutubeSubtitle(source, event.packageName.toString())
+                        var subtitleStr: String? =
+                            getYoutubeSubtitle(source, event.packageName.toString()) ?: return
                         // Ignore unnecessary text
-                        if (subtitleStr.isNullOrEmpty() ||
+                        if (subtitleStr!!.startsWith("♪")) {
+                            subtitleStr = subtitleStr
+                                .replace("♪", "").toLowerCase(Locale.ROOT)
+                        }
+                        if (subtitleStr.isEmpty() ||
                             subtitleStr == previoustext ||
                             previoustext.endsWith(subtitleStr)
                         ) return
 //                        Log.d(TAG, "subtitleStr: $subtitleStr")
 
-
                         val diffs = DiffMatchPatch().diffMain(previoustext, subtitleStr)
 //                        Log.d(TAG, "diffs: diffs")
 
-                        // Whether it is the automatic subtitle
-                        if (diffs.count() <= 3) {
-                            val insertText: String =
-                                diffs.first { diff: Diff? ->
-                                    diff!!.operation == DiffMatchPatch.Operation.INSERT
-                                }.text
+                        var insertText: String? = null
+                        // When it is the automatic subtitle
+                        if (diffs.count() in 1..3) {
+                            Log.d(TAG, "diffs: $diffs")
+                            insertText =
+                                diffs.firstOrNull { diff: Diff ->
+                                    diff.operation == DiffMatchPatch.Operation.INSERT
+                                }?.text
+                            Log.d(TAG, "insertText: $insertText")
+                        }
+
+                        // When it is the automatic subtitle
+                        if (insertText != null) {
                             transcript += insertText
                             setTranslatedDualLangText(transcript)
                         } else {
@@ -194,7 +206,7 @@ class MyAccessibilityService : AccessibilityService() {
                         return
                     }
                     "com.google.android.as" -> {
-                        var text = source.text?: return
+                        var text = source.text ?: return
                         // Ignore unnecessary text
                         if (text.isEmpty() ||
                             text == previoustext
@@ -227,10 +239,14 @@ class MyAccessibilityService : AccessibilityService() {
 
 
     @ExperimentalCoroutinesApi
-    private fun setTranslatedDualLangText(text: String, isSetFloatText: Boolean = true, isSendBroadcast: Boolean = true) {
+    private fun setTranslatedDualLangText(
+        text: String,
+        isSetFloatText: Boolean = true,
+        isSendBroadcast: Boolean = true
+    ) {
 
         var preProcessText = text.replace("\n", "\\n")
-        val maxCharLen = 10000
+        val maxCharLen = 1000
         if (preProcessText.length > maxCharLen) {
             val index = preProcessText
                 .indexOf(" ", preProcessText.length - maxCharLen)
@@ -293,12 +309,14 @@ class MyAccessibilityService : AccessibilityService() {
         if (accessibilityNodeInfo != null) {
             for (i in 0 until accessibilityNodeInfo.childCount) {
                 val child = accessibilityNodeInfo.getChild(i) ?: continue
+                val contentDescription = child.contentDescription
                 val text = child.text
-                if (text != null) {
+                if (text != null || contentDescription != null) {
                     Log.d(TAG, "child.childCount: ${child.childCount}")
                     Log.d(TAG, "child.viewIdResourceName: ${child.viewIdResourceName}")
                     Log.d(TAG, "child.className: ${child.className}")
                     Log.d(TAG, "text: $text")
+                    Log.d(TAG, "contentDescription: $contentDescription")
                     Log.d(TAG, "---")
                 }
             }
