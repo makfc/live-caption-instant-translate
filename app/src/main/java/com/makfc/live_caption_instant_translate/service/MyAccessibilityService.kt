@@ -14,6 +14,9 @@ import android.view.accessibility.AccessibilityEvent.*
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.*
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import com.github.pemistahl.lingua.api.Language
+import com.github.pemistahl.lingua.api.LanguageDetector
+import com.github.pemistahl.lingua.api.LanguageDetectorBuilder
 import com.lzf.easyfloat.EasyFloat
 import com.lzf.easyfloat.anim.AppFloatFadeInOutAnimator
 import com.lzf.easyfloat.enums.ShowPattern
@@ -44,6 +47,16 @@ class MyAccessibilityService : AccessibilityService() {
         var previoustext = ""
         var translatedDualLangText = ""
         var transcript = ""
+        private val detector: LanguageDetector = LanguageDetectorBuilder.fromLanguages(
+            Language.CHINESE,
+            Language.ENGLISH,
+            Language.JAPANESE
+        ).build()
+
+        fun isChinese(s: String): Boolean {
+            val detectedLanguage: Language = detector.detectLanguageOf(s)
+            return detectedLanguage == Language.CHINESE
+        }
     }
 
 //    val translateAPI = TranslateAPI()
@@ -170,6 +183,7 @@ class MyAccessibilityService : AccessibilityService() {
                             subtitleStr = subtitleStr
                                 .replace("♪", "").toLowerCase(Locale.ROOT)
                         }
+                        if (isChinese(subtitleStr)) return
                         if (subtitleStr.isEmpty() ||
                             subtitleStr == previoustext ||
                             previoustext.endsWith(subtitleStr)

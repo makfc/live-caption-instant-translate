@@ -70,11 +70,11 @@ object GlobalAppContext {
         }
     }
 
-    fun post(r: Runnable?) {
+    fun post(r: Runnable) {
         sHandler!!.post(r)
     }
 
-    fun postDelayed(r: Runnable?, m: Long) {
+    fun postDelayed(r: Runnable, m: Long) {
         sHandler!!.postDelayed(r, m)
     }
 }
