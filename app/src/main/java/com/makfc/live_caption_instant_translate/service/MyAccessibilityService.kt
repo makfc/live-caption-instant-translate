@@ -14,9 +14,6 @@ import android.view.accessibility.AccessibilityEvent.*
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.*
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
-import com.github.pemistahl.lingua.api.Language
-import com.github.pemistahl.lingua.api.LanguageDetector
-import com.github.pemistahl.lingua.api.LanguageDetectorBuilder
 import com.lzf.easyfloat.EasyFloat
 import com.lzf.easyfloat.anim.AppFloatFadeInOutAnimator
 import com.lzf.easyfloat.enums.ShowPattern
@@ -47,15 +44,16 @@ class MyAccessibilityService : AccessibilityService() {
         var previoustext = ""
         var translatedDualLangText = ""
         var transcript = ""
-        private val detector: LanguageDetector = LanguageDetectorBuilder.fromLanguages(
-            Language.CHINESE,
-            Language.ENGLISH,
-            Language.JAPANESE
-        ).build()
+
+        private fun isJapaneseKana(codePoint: Int): Boolean {
+            return Character.UnicodeScript.of(codePoint) == Character.UnicodeScript.HIRAGANA ||
+                    Character.UnicodeScript.of(codePoint) == Character.UnicodeScript.KATAKANA
+        }
 
         fun isChinese(s: String): Boolean {
-            val detectedLanguage: Language = detector.detectLanguageOf(s)
-            return detectedLanguage == Language.CHINESE
+            return s.codePoints().anyMatch { codePoint: Int ->
+                Character.UnicodeScript.of(codePoint) == Character.UnicodeScript.HAN
+            } && !s.codePoints().anyMatch { codePoint: Int -> isJapaneseKana(codePoint) }
         }
     }
 
@@ -260,7 +258,7 @@ class MyAccessibilityService : AccessibilityService() {
     ) {
 
         var preProcessText = text.replace("\n", "\\n")
-        val maxCharLen = 1000
+        val maxCharLen = 500
         if (preProcessText.length > maxCharLen) {
             val index = preProcessText
                 .indexOf(" ", preProcessText.length - maxCharLen)
