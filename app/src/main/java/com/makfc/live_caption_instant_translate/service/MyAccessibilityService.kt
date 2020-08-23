@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Handler
+import android.util.DisplayMetrics
 import android.util.Log
 import android.view.MotionEvent
 import android.view.accessibility.AccessibilityEvent
@@ -86,16 +87,25 @@ class MyAccessibilityService : AccessibilityService() {
     }
 
     fun showEasyFloat() {
+        val displayMetrics: DisplayMetrics = resources.displayMetrics
+        val dpHeight: Float = displayMetrics.heightPixels / displayMetrics.density
+        val dpWidth: Float = displayMetrics.widthPixels / displayMetrics.density
+        System.out.println("dpHeight : $dpHeight")
+        System.out.println("dpWidth : $dpWidth")
+        System.out.println("heightPixels : ${displayMetrics.heightPixels}")
+        System.out.println("widthPixels : ${displayMetrics.widthPixels}")
         EasyFloat.init(this.application, true)
         EasyFloat.with(MainActivity.instance?.applicationContext ?: this)
             .setTag(TAG_SCALE_FLOAT)
             .setShowPattern(ShowPattern.ALL_TIME)
-            .setLocation(50, 500)
+            .setLocation(0, 500)
             .setAppFloatAnimator(AppFloatFadeInOutAnimator())
             .setFilter(MainActivity::class.java)
             .setLayout(R.layout.float_app_scale, OnInvokeView {
                 val content = it.findViewById<RelativeLayout>(R.id.rlContent)
                 val params = content.layoutParams as FrameLayout.LayoutParams
+                params.width = displayMetrics.widthPixels
+                content.layoutParams = params
                 it.findViewById<ScaleImage>(R.id.ivScale).onScaledListener =
                     object : ScaleImage.OnScaledListener {
                         override fun onScaled(x: Float, y: Float, event: MotionEvent) {
@@ -269,7 +279,6 @@ class MyAccessibilityService : AccessibilityService() {
                 withContext(Dispatchers.IO) { translate(preProcessText) } ?: return@launch
 //            val translatedText = translate(preProcessText) ?: return@launch
 //            Log.d(TAG, "translatedText: $translatedText")
-            translatedDualLangText = translateResult.dualLangText
             if (isSetFloatText && MainActivity.isOnPause) {
                 if (EasyFloat.getAppFloatView(TAG_SCALE_FLOAT) == null) {
                     showEasyFloat()
@@ -281,6 +290,7 @@ class MyAccessibilityService : AccessibilityService() {
                 }
             }
             if (isSendBroadcast) {
+                translatedDualLangText = translateResult.dualLangText
 //                Log.d(TAG, "sendBroadcastMessage: $translatedText")
                 sendBroadcastMessage(translatedDualLangText, true)
             }

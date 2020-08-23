@@ -21,11 +21,13 @@ class TranslateAPI {
     companion object {
         var token: Token? = null
 
-        fun removeNewLineChar(text: String): String {
+        fun replaceChar(text: String): String {
             return text
                 .replace("\\ n", "\n")
                 .replace("\\n", "\n")
                 .replace("\\", "")
+                .replace("，", "，\n")
+                .replace("。", "。\n")
         }
 
         @ExperimentalCoroutinesApi
@@ -145,8 +147,8 @@ class TranslateAPI {
                         val currentLine = total[i] as JSONArray
                         if (currentLine[0].toString() == "null") continue
 
-                        val targetLangText = removeNewLineChar(currentLine[0].toString())
-                        val sourceLangText = removeNewLineChar(currentLine[1].toString())
+                        val targetLangText = replaceChar(currentLine[0].toString())
+                        val sourceLangText = replaceChar(currentLine[1].toString())
                         translatedText += targetLangText
                         dualLangText += doubleNewLine + sourceLangText
                         dualLangText += "\n" + targetLangText
