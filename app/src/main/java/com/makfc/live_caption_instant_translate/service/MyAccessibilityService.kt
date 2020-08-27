@@ -26,8 +26,6 @@ import com.makfc.live_caption_instant_translate.R
 import com.makfc.live_caption_instant_translate.translate_api.TranslateAPI.Companion.translate
 import com.makfc.live_caption_instant_translate.widget.ScaleImage
 import kotlinx.coroutines.*
-import org.bitbucket.cowwoc.diffmatchpatch.DiffMatchPatch
-import org.bitbucket.cowwoc.diffmatchpatch.DiffMatchPatch.Diff
 import java.util.*
 import kotlin.math.max
 
@@ -56,6 +54,38 @@ class MyAccessibilityService : AccessibilityService() {
                 Character.UnicodeScript.of(codePoint) == Character.UnicodeScript.HAN
             } && !s.codePoints().anyMatch { codePoint: Int -> isJapaneseKana(codePoint) }
         }
+
+        fun getInsertedText(oldText: String, newText: String): String? {
+            val oldTextList = oldText.split(" ")
+            val newTextList = newText.split(" ")
+            val firstWord = newTextList.first()
+
+            // Get all occurrence indexes
+            val indexList = oldTextList.withIndex()
+                .filter { it.value == firstWord }
+                .map { it.index }
+            if (indexList.isEmpty()) return null
+
+            var newTextMuList = newTextList.toMutableList()
+            var i = 0
+            for (index in indexList) {
+                i = index
+                newTextMuList = newTextList.toMutableList()
+                while (i <= oldTextList.lastIndex) {
+                    if (oldTextList[i++] == newTextMuList.first())
+                        newTextMuList.removeAt(0)
+                    else
+                        break
+                }
+
+                // Break the search when i reach last index
+                if (i == oldTextList.count()) break
+            }
+
+            // i must reach last index
+            if (i != oldTextList.count()) return null
+            return " " + newTextMuList.joinToString(" ")
+        }
     }
 
 //    val translateAPI = TranslateAPI()
@@ -71,10 +101,10 @@ class MyAccessibilityService : AccessibilityService() {
                     Log.d(TAG, "onReceive: ${MainActivity.ACTION_BROADCAST}")
                     if (transcript.isEmpty()) {
                         sendBroadcastMessage(START_MESSAGE, false)
-                        setTranslatedDualLangText(START_MESSAGE, false)
+                        translateText(START_MESSAGE, false)
                     } else {
                         sendBroadcastMessage(transcript, false)
-                        setTranslatedDualLangText(transcript, false)
+                        translateText(transcript, false)
                     }
                 }
             }, IntentFilter(MainActivity.ACTION_BROADCAST)
@@ -186,41 +216,42 @@ class MyAccessibilityService : AccessibilityService() {
                         if (event.contentChangeTypes != CONTENT_CHANGE_TYPE_SUBTREE) return
                         var subtitleStr: String? =
                             getYoutubeSubtitle(source, event.packageName.toString()) ?: return
-                        // Ignore unnecessary text
+
+                        // Remove unnecessary text
                         if (subtitleStr!!.startsWith("♪")) {
                             subtitleStr = subtitleStr
                                 .replace("♪", "").toLowerCase(Locale.ROOT)
                         }
+
+                        // Ignore unnecessary text
                         if (isChinese(subtitleStr)) return
                         if (subtitleStr.isEmpty() ||
                             subtitleStr == previoustext ||
                             previoustext.endsWith(subtitleStr)
                         ) return
-//                        Log.d(TAG, "subtitleStr: $subtitleStr")
 
-                        val diffs = DiffMatchPatch().diffMain(previoustext, subtitleStr)
-//                        Log.d(TAG, "diffs: diffs")
-
-                        var insertText: String? = null
-                        // When it is the automatic subtitle
-                        if (diffs.count() in 1..3) {
-                            Log.d(TAG, "diffs: $diffs")
-                            insertText =
-                                diffs.firstOrNull { diff: Diff ->
-                                    diff.operation == DiffMatchPatch.Operation.INSERT
-                                }?.text
-                            Log.d(TAG, "insertText: $insertText")
-                        }
+                        val insertText = getInsertedText(previoustext, subtitleStr)
 
                         // When it is the automatic subtitle
                         if (insertText != null) {
                             transcript += insertText
-                            setTranslatedDualLangText(transcript)
+                            translateText(transcript)
                         } else {
                             transcript += "\n" + subtitleStr
-                            setTranslatedDualLangText(subtitleStr, true, false)
-                            setTranslatedDualLangText(transcript, false)
+                            translateText(subtitleStr,
+                                isSetFloatText = true,
+                                isSendBroadcast = false
+                            )
+                            translateText(transcript, false)
                         }
+
+                          // For debug
+//                        if (insertText == null) {
+//                            Log.d(TAG, "previoustext: $previoustext")
+//                            Log.d(TAG, "subtitleStr: $subtitleStr")
+//                            Log.d(TAG, "insertText: $insertText")
+//                            Log.d(TAG, "transcript: $transcript")
+//                        }
 
 //                        Log.d(TAG, "transcript: $transcript")
                         sendBroadcastMessage(transcript, false)
@@ -235,7 +266,7 @@ class MyAccessibilityService : AccessibilityService() {
                         ) return
                         // Remove TextView Title
                         text = text.substring(text.indexOf("\n") + 1)
-                        setTranslatedDualLangText(text)
+                        translateText(text)
                         transcript = text
                         sendBroadcastMessage(transcript, false)
                         previoustext = text
@@ -261,7 +292,7 @@ class MyAccessibilityService : AccessibilityService() {
 
 
     @ExperimentalCoroutinesApi
-    private fun setTranslatedDualLangText(
+    private fun translateText(
         text: String,
         isSetFloatText: Boolean = true,
         isSendBroadcast: Boolean = true
@@ -278,7 +309,8 @@ class MyAccessibilityService : AccessibilityService() {
             val translateResult =
                 withContext(Dispatchers.IO) { translate(preProcessText) } ?: return@launch
 //            val translatedText = translate(preProcessText) ?: return@launch
-//            Log.d(TAG, "translatedText: $translatedText")
+//            Log.d(TAG, "preProcessText: ${preProcessText}")
+//            Log.d(TAG, "translatedText: ${translateResult.translatedText}")
             if (isSetFloatText && MainActivity.isOnPause) {
                 if (EasyFloat.getAppFloatView(TAG_SCALE_FLOAT) == null) {
                     showEasyFloat()

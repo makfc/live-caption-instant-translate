@@ -28,6 +28,7 @@ class TranslateAPI {
                 .replace("\\", "")
                 .replace("，", "，\n")
                 .replace("。", "。\n")
+                .replace("\n\n", "\n")
         }
 
         @ExperimentalCoroutinesApi

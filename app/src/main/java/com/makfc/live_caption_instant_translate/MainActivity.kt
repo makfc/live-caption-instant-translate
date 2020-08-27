@@ -46,7 +46,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    var text: String = ""
+    var fullTranscript: String = ""
     var translatedText: String = ""
 
     //    var isStarted = false
@@ -96,7 +96,7 @@ class MainActivity : AppCompatActivity() {
                         translatedText = extraText
                         setText()
                     } else {
-                        text = extraText
+                        fullTranscript = extraText
                     }
                 }
             }, IntentFilter(MyAccessibilityService.ACTION_BROADCAST)
@@ -149,8 +149,8 @@ class MainActivity : AppCompatActivity() {
         // Handle item selection
         return when (item.itemId) {
             R.id.translateAll -> {
-                if (text.isEmpty()) return true
-                val preProcessText = text.replace("\n", "\\n")
+                if (fullTranscript.isEmpty()) return true
+                val preProcessText = fullTranscript.replace("\n", "\\n")
                 scrollView.post { scrollToBottom(scrollView) }
                 GlobalScope.launch(Dispatchers.Main) {
                     val translateResult =
@@ -174,7 +174,7 @@ class MainActivity : AppCompatActivity() {
         val sendIntent: Intent = Intent().apply {
             action = Intent.ACTION_SEND
 //            action = "android.intent.action.PROCESS_TEXT"
-            putExtra(Intent.EXTRA_TEXT, text)
+            putExtra(Intent.EXTRA_TEXT, fullTranscript)
             type = "text/plain"
             component = ComponentName(
                 "com.google.android.apps.translate",
