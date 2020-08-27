@@ -235,7 +235,9 @@ class MyAccessibilityService : AccessibilityService() {
                             transcript += insertText
                             translateText(transcript)
                         } else {
-                            transcript += "\n" + subtitleStr
+                            if (previoustext.isNotEmpty())
+                                transcript += "\n"
+                            transcript += subtitleStr
                             translateText(
                                 subtitleStr,
                                 isSetFloatText = true,
