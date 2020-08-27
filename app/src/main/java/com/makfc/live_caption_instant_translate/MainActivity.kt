@@ -49,10 +49,6 @@ class MainActivity : AppCompatActivity() {
     var fullTranscript: String = ""
     var translatedText: String = ""
 
-    //    var isStarted = false
-//    var previousSubtitleStr = ""
-    private val translateAPI = TranslateAPI()
-
     override fun onCreate(savedInstanceState: Bundle?) {
         instance = this
         super.onCreate(savedInstanceState)

@@ -66,10 +66,9 @@ class MyAccessibilityService : AccessibilityService() {
                 .map { it.index }
             if (indexList.isEmpty()) return null
 
-            var newTextMuList = newTextList.toMutableList()
-            var i = 0
+            var newTextMuList: MutableList<String>
             for (index in indexList) {
-                i = index
+                var i = index
                 newTextMuList = newTextList.toMutableList()
                 while (i <= oldTextList.lastIndex) {
                     if (oldTextList[i++] == newTextMuList.first())
@@ -78,13 +77,12 @@ class MyAccessibilityService : AccessibilityService() {
                         break
                 }
 
-                // Break the search when i reach last index
-                if (i == oldTextList.count()) break
+                // When i reach last index
+                if (i == oldTextList.count()) {
+                    return " " + newTextMuList.joinToString(" ")
+                }
             }
-
-            // i must reach last index
-            if (i != oldTextList.count()) return null
-            return " " + newTextMuList.joinToString(" ")
+            return null
         }
     }
 
@@ -116,14 +114,14 @@ class MyAccessibilityService : AccessibilityService() {
         }, 0)*/
     }
 
-    fun showEasyFloat() {
+    private fun showEasyFloat() {
         val displayMetrics: DisplayMetrics = resources.displayMetrics
         val dpHeight: Float = displayMetrics.heightPixels / displayMetrics.density
         val dpWidth: Float = displayMetrics.widthPixels / displayMetrics.density
-        System.out.println("dpHeight : $dpHeight")
-        System.out.println("dpWidth : $dpWidth")
-        System.out.println("heightPixels : ${displayMetrics.heightPixels}")
-        System.out.println("widthPixels : ${displayMetrics.widthPixels}")
+        println("dpHeight : $dpHeight")
+        println("dpWidth : $dpWidth")
+        println("heightPixels : ${displayMetrics.heightPixels}")
+        println("widthPixels : ${displayMetrics.widthPixels}")
         EasyFloat.init(this.application, true)
         EasyFloat.with(MainActivity.instance?.applicationContext ?: this)
             .setTag(TAG_SCALE_FLOAT)
@@ -238,14 +236,15 @@ class MyAccessibilityService : AccessibilityService() {
                             translateText(transcript)
                         } else {
                             transcript += "\n" + subtitleStr
-                            translateText(subtitleStr,
+                            translateText(
+                                subtitleStr,
                                 isSetFloatText = true,
                                 isSendBroadcast = false
                             )
                             translateText(transcript, false)
                         }
 
-                          // For debug
+                        // For debug
 //                        if (insertText == null) {
 //                            Log.d(TAG, "previoustext: $previoustext")
 //                            Log.d(TAG, "subtitleStr: $subtitleStr")
