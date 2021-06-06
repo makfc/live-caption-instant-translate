@@ -132,7 +132,7 @@ class MyAccessibilityService : AccessibilityService() {
             .setLayout(R.layout.float_app_scale, OnInvokeView {
                 val content = it.findViewById<RelativeLayout>(R.id.rlContent)
                 val params = content.layoutParams as FrameLayout.LayoutParams
-                params.width = displayMetrics.widthPixels
+                params.width = displayMetrics.widthPixels.coerceAtMost(displayMetrics.heightPixels)
                 content.layoutParams = params
                 it.findViewById<ScaleImage>(R.id.ivScale).onScaledListener =
                     object : ScaleImage.OnScaledListener {

@@ -1,26 +1,20 @@
 package com.makfc.live_caption_instant_translate.translate_api
 
-import android.annotation.SuppressLint
-import android.os.AsyncTask
-import android.text.TextUtils
 import android.util.Log
 import com.makfc.live_caption_instant_translate.MainActivity.Companion.TAG
-import com.makfc.live_caption_instant_translate.translate_api.Token.msCookieManager
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.suspendCancellableCoroutine
-import org.json.JSONArray
-import org.json.JSONException
-import java.io.DataOutputStream
-import java.net.HttpURLConnection
-import java.net.URL
+import okhttp3.*
+import okhttp3.logging.HttpLoggingInterceptor
+import org.jsoup.Jsoup
+import org.jsoup.nodes.Document
+import org.jsoup.select.Elements
+import java.io.IOException
 import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 import kotlin.coroutines.resume
 
 class TranslateAPI {
     companion object {
-        var token: Token? = null
-
         fun replaceChar(text: String): String {
             return text
                 .replace("\\ n", "\n")
@@ -34,149 +28,45 @@ class TranslateAPI {
         @ExperimentalCoroutinesApi
         suspend fun translate(text: String): TranslateResult? =
             suspendCancellableCoroutine { cont ->
-                val translateAPI = TranslateAPI()
-                translateAPI.setTranslateListener(object : TranslateListener {
-                    override fun onSuccess(translatedText: TranslateResult) {
-//                        Log.d(TAG, "onSuccess: $translatedText")
-                        cont.resume(translatedText)
+                val preProcessText = URLEncoder.encode(text, "UTF-8")
+
+                val langCodeTo = "zh-Hant"
+
+                val logging = HttpLoggingInterceptor()
+                logging.setLevel(HttpLoggingInterceptor.Level.BASIC)
+                val client = OkHttpClient()
+                    .newBuilder()
+                    .addInterceptor(logging)
+                    .build()
+                val request = Request.Builder()
+                    .addHeader(
+                        "user-agent",
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.125 Safari/537.36"
+                    )
+                    .url("https://www.google.com/async/lyrics_translate?async=lyrics_partial:${preProcessText},lyrics_full:%20,title:%20,lang_code_from:en,lang_code_to:${langCodeTo},exp_ui_ctx:2,_id:gws-plugins-knowledge-verticals-music__translated-lyrics-container,_pms:s,_fmt:pc")
+                    .build()
+
+                client.newCall(request).enqueue(object : Callback {
+                    override fun onResponse(call: Call, response: Response) {
+                        val bodyStr = response.body?.string()
+//                        Log.d("HKT", "response: $bodyStr")
+
+                        val result = bodyStr?.split(';')?.get(3)
+                        val doc: Document = Jsoup.parse(result)
+                        val spanElements: Elements = doc
+                            .select("div > div > span[jsname]:nth-child(odd) > span")
+                        val translatedText =
+                            spanElements.joinToString("") { e -> replaceChar(e.text()) }
+                        cont.resume(TranslateResult(translatedText, "$text\n$translatedText"))
                     }
 
-                    override fun onFailure(ErrorText: String) {
-                        Log.d(TAG, "onFailure: $ErrorText")
+                    override fun onFailure(call: Call, e: IOException) {
+                        Log.d(TAG, "onFailure: $e")
                         cont.resume(null)
                     }
                 })
-                translateAPI.translate(
-                    Language.AUTO_DETECT,
-                    Language.CHINESE_TRADITIONAL,
-                    text
-                )
             }
     }
 
     data class TranslateResult(val translatedText: String, val dualLangText: String)
-
-    var resp: String? = null
-    lateinit var langFrom: String
-    lateinit var langTo: String
-    lateinit var word: String
-
-    fun translate(langFrom: String, langTo: String, text: String) {
-        this.langFrom = langFrom
-        this.langTo = langTo
-        word = text
-        val async = Async()
-        async.execute()
-    }
-
-    @SuppressLint("StaticFieldLeak")
-    internal inner class Async : AsyncTask<String?, String?, String?>() {
-        override fun doInBackground(vararg params: String?): String? {
-            if (token == null)
-                token = Token()
-
-//            Log.d(MainActivity.TAG, "token: ${token!!.tkk[0]}")
-            try {
-                val url = "https://translate.googleapis.com/translate_a/single?" +
-                        "anno=3" +
-                        "&client=webapp" +
-//                        "&format=text" +
-                        "&v=1.0" +
-                        "&key=" +
-                        "&logld=" + URLEncoder.encode("vTE_20200506_00", "UTF-8") +
-                        "&sl=" + langFrom +
-                        "&tl=" + langTo +
-                        "&hl=zh-TW" +
-                        "&sp=nmt" +
-                        "&tc=2" +
-                        "&sr=1" +
-                        "&tk=" + token!!.getToken(word) +
-                        "&mode=1" +
-                        "&dt=at&dt=bd&dt=ex&dt=ld&dt=md&dt=qca&dt=rw&dt=rm&dt=sos&dt=ss&dt=t" +
-                        "&otf=1" +
-                        "&pc=1&ssel=0&tsel=0&kc=2" //+
-//                        "&q=" + URLEncoder.encode(word, "UTF-8")
-                val q = "q=" + URLEncoder.encode(word, "UTF-8")
-//                Log.d(TAG, "url: $url")
-                val obj = URL(url)
-                val con =
-                    obj.openConnection() as HttpURLConnection
-                con.requestMethod = "POST"
-//                con.setRequestProperty("content-type", "application/x-www-form-urlencoded")
-                con.setRequestProperty(
-                    "User-Agent",
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36"
-                )
-                con.setRequestProperty("Accept", "*/*")
-//                con.setRequestProperty("X-Requested-With", "XMLHttpRequest")
-//                con.setRequestProperty("Referer", "https://translate.google.com/?source=gtx")
-//                con.setRequestProperty("Sec-Fetch-Site", "same-origin")
-//                con.setRequestProperty("Sec-Fetch-Mode", "cors")
-//                con.setRequestProperty("Sec-Fetch-Dest", "empty")
-//                Log.d(MainActivity.TAG, "cookies: ${msCookieManager.cookieStore.cookies}")
-                con.setRequestProperty(
-                    "Cookie",
-                    TextUtils.join(";", msCookieManager.cookieStore.cookies)
-                )
-                con.doOutput = true
-                try {
-                    val postData: ByteArray = q.toByteArray(StandardCharsets.UTF_8)
-                    val outputStream = DataOutputStream(con.outputStream)
-                    outputStream.write(postData)
-                    outputStream.flush()
-                } catch (exception: Exception) {
-                }
-                resp = con.inputStream.bufferedReader().readText()
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-            return null
-        }
-
-        override fun onPostExecute(s: String?) {
-            var translatedText = ""
-            var dualLangText = ""
-            if (resp == null) {
-                listener!!.onFailure("Network Error")
-            } else {
-                try {
-//                    Log.d(MainActivity.TAG, "resp: $resp")
-                    val main = JSONArray(resp)
-                    val total = main[0] as JSONArray
-                    var doubleNewLine = ""
-                    for (i in 0 until total.length()) {
-                        val currentLine = total[i] as JSONArray
-                        if (currentLine[0].toString() == "null") continue
-
-                        val targetLangText = replaceChar(currentLine[0].toString())
-                        val sourceLangText = replaceChar(currentLine[1].toString())
-                        translatedText += targetLangText
-                        dualLangText += doubleNewLine + sourceLangText
-                        dualLangText += "\n" + targetLangText
-                        doubleNewLine = "\n\n"
-                    }
-//                    Log.d(ContentValues.TAG, "onPostExecute: $temp")
-                    if (translatedText.length > 2) {
-                        listener!!.onSuccess(TranslateResult(translatedText, dualLangText))
-                    } else {
-                        listener!!.onFailure("Invalid Input String")
-                    }
-                } catch (e: JSONException) {
-                    listener!!.onFailure(e.localizedMessage ?: e.toString())
-                    e.printStackTrace()
-                }
-            }
-            super.onPostExecute(s)
-        }
-    }
-
-    private var listener: TranslateListener? = null
-    fun setTranslateListener(listener: TranslateListener?) {
-        this.listener = listener
-    }
-
-    interface TranslateListener {
-        fun onSuccess(translatedText: TranslateResult)
-        fun onFailure(ErrorText: String)
-    }
 }
